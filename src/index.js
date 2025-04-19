@@ -1,11 +1,15 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css'; // <--- make sure this is here
-import App from './App';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import "./index.css";
+import { UserProvider } from "./context/UserContext"; // ✅ import it!
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
+const root = ReactDOM.createRoot(document.getElementById("root"));
+
 root.render(
   <React.StrictMode>
-    <App />
+    <UserProvider>
+      <App />
+    </UserProvider>
   </React.StrictMode>
 );
