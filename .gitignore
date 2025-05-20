@@ -1,37 +1,24 @@
-# ─── Node dependencies ───────────────────────────────────────────
+# Dependencies
 node_modules/
-Backend/node_modules/
 
-# ─── Build artifacts ─────────────────────────────────────────────
-# React “npm run build” folder
+# Build output
 build/
-# Any other dist output
 dist/
 
-# ─── Environment files ────────────────────────────────────────────
-# local env vars—never check these in!
+# Local env files
 .env
+.env.local
 .env.*.local
 
-# ─── Logs ────────────────────────────────────────────────────────
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# ─── Coverage reports ─────────────────────────────────────────────
-coverage/
-
-# ─── Editor / OS files ───────────────────────────────────────────
-# VSCode
+# IDE/editor
 .vscode/
-# JetBrains IDEs
 .idea/
-# macOS
 .DS_Store
-# Windows
-Thumbs.db
 
-# ─── Misc ────────────────────────────────────────────────────────
-# lock files if you switch package managers
-package-lock.json
-yarn.lock
+# OS
+Thumbs.db
