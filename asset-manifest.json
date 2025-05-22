@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/Festiva/static/css/main.1e854326.css",
+    "main.js": "/Festiva/static/js/main.5918fa81.js",
+    "index.html": "/Festiva/index.html",
+    "main.1e854326.css.map": "/Festiva/static/css/main.1e854326.css.map",
+    "main.5918fa81.js.map": "/Festiva/static/js/main.5918fa81.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.1e854326.css",
+    "static/js/main.5918fa81.js"
+  ]
+}
