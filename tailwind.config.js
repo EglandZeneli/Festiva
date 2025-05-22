@@ -1,14 +1,21 @@
-/** @type {import('tailwindcss').Config} */
+// tailwind.config.js
 module.exports = {
-  content: ["./src/**/*.{js,jsx}"],
+  content: [
+    "./src/**/*.{js,jsx,ts,tsx}",
+  ],
   theme: {
     extend: {
-      colors: {
-        primary: "#1f1f2e",
-        accent: "#ff007f",
-        secondary: "#00ffff"
-      }
-    }
+      animation: {
+        'spin-slow': 'spin 10s linear infinite',
+        'fade-in': 'fadeIn 1s ease-out forwards',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+      },
+    },
   },
   plugins: [],
 }

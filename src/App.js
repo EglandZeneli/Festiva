@@ -1,52 +1,61 @@
 // src/App.js
-import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-
-import { AuthProvider } from "./context/AuthContext";
-import { CartProvider } from "./context/CartContext";
-import PrivateRoute   from "./components/PrivateRoute";
-
-import Navbar        from "./components/Navbar";
-import Home          from "./pages/Home";
-import Events        from "./pages/Events";
-import CreateEvent   from "./pages/CreateEvent";
-import Checkout      from "./pages/Checkout";
-import Login         from "./pages/Login";
-import Register      from "./pages/Register";  // <-- new
+import React from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Navbar        from './components/Navbar'
+import Home          from './pages/Home'
+import Events        from './pages/Events'
+import Login         from './pages/Login'
+import Register      from './pages/Register'
+import CreateEvent   from './pages/CreateEvent'
+import Checkout      from './pages/Checkout'
+import Cart          from './pages/Cart'
+import PrivateRoute  from './components/PrivateRoute'
 
 export default function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <Router>
-          <Navbar />
-          <Routes>
-            {/* public */}
-            <Route path="/"       element={<Home />} />
-            <Route path="/login"  element={<Login />} />
-            <Route path="/register" element={<Register />} />  {/* <-- new */}
-            <Route path="/events" element={<Events />} />
+    <BrowserRouter>
+      {/* Nav is now rendered on every page */}
+      <Navbar />
 
-            {/* protected */}
-            <Route
-              path="/checkout"
-              element={
-                <PrivateRoute>
-                  <Checkout />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/events/new"
-              element={
-                <PrivateRoute>
-                  <CreateEvent />
-                </PrivateRoute>
-              }
-            />
-          </Routes>
-        </Router>
-      </CartProvider>
-    </AuthProvider>
-  );
+      <Routes>
+        {/* Landing page */}
+        <Route path="/" element={<Home />} />
+
+        {/* Authentication */}
+        <Route path="/login"    element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Public listing */}
+        <Route path="/events" element={<Events />} />
+
+        {/* Only admin/organiser */}
+        <Route
+          path="/events/new"
+          element={
+            <PrivateRoute roles={['admin','organiser']}>
+              <CreateEvent />
+            </PrivateRoute>
+          }
+        />
+
+        {/* Cart & Checkout (user must be logged in) */}
+        <Route
+          path="/cart"
+          element={
+            <PrivateRoute>
+              <Cart />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/checkout/:id"
+          element={
+            <PrivateRoute>
+              <Checkout />
+            </PrivateRoute>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  )
 }

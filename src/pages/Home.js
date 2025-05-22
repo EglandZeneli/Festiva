@@ -36,12 +36,13 @@ export default function Home() {
           Your next unforgettable memory starts here.
         </p>
         <div className="mt-10 flex flex-wrap gap-6">
-          <button className="bg-purple-700 hover:bg-purple-900 text-white px-8 py-4 rounded-full text-xl font-bold shadow-lg transition transform hover:scale-105">
+          <button
+            onClick={() => window.location.assign("/events")}
+            className="bg-purple-700 hover:bg-purple-900 text-white px-8 py-4 rounded-full text-xl font-bold shadow-lg transition transform hover:scale-105"
+          >
             Buy Tickets
           </button>
-          <button className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black px-8 py-4 rounded-full text-xl font-bold transition transform hover:scale-105">
-            Explore More
-          </button>
+
         </div>
       </div>
     </div>

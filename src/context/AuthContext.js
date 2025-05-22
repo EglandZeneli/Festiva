@@ -1,44 +1,82 @@
-// src/context/AuthContext.js
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import API from '../axiosConfig';
+import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem('token'));
-  const [user, setUser]   = useState(null);
+  const [user, setUser] = useState(null);
 
-  // whenever token changes, decode or refetch user-info
+  // On mount, load token from localStorage
   useEffect(() => {
+    const token = localStorage.getItem('festivaToken');
     if (token) {
-      localStorage.setItem('token', token);
-      // optionally decode from JWT or fetch /auth/me
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      setUser({ username: payload.username, role: payload.role });
-      axios.defaults.headers.common.Authorization = `Bearer ${token}`;
-    } else {
-      localStorage.removeItem('token');
-      setUser(null);
-      delete axios.defaults.headers.common.Authorization;
+      try {
+        const { username, role, exp } = jwtDecode(token);
+        if (exp * 1000 > Date.now()) {
+          setUser({ username, role });
+          API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        } else {
+          localStorage.removeItem('festivaToken');
+        }
+      } catch {
+        localStorage.removeItem('festivaToken');
+      }
     }
-  }, [token]);
+  }, []);
 
-  const login = async (username, password) => {
-    const res = await axios.post('/auth/login', { username, password });
-    setToken(res.data.token);
-  };
+  // Register → POST /auth/register → auto-login
+  async function register({ username, email, password }) {
+    try {
+      const res = await API.post('/auth/register', { username, email, password });
+      if (!res.data.success) {
+        throw new Error(res.data.error || 'Registration failed');
+      }
+      // after registering, log in with same credentials
+      await login({ email, password });
+    } catch (error) {
+      throw new Error(
+        error.response?.data?.error || 
+        error.message || 
+        'Registration failed'
+      );
+    }
+  }
 
-  const logout = () => {
-    setToken(null);
-  };
+  // Login → POST /auth/login 
+  async function login({ email, password }) {
+    try {
+      const res = await API.post('/auth/login', { email, password });
+      if (!res.data.success) {
+        throw new Error(res.data.error || 'Login failed');
+      }
+      
+      const token = res.data.token || res.data.accessToken;
+      localStorage.setItem('festivaToken', token);
+      API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      const { username, role } = jwtDecode(token);
+      setUser({ username, role });
+    } catch (error) {
+      throw new Error(
+        error.response?.data?.error || 
+        error.message || 
+        'Login failed'
+      );
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('festivaToken');
+    delete API.defaults.headers.common['Authorization'];
+    setUser(null);
+  }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, register, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export const useAuth = () => useContext(AuthContext);

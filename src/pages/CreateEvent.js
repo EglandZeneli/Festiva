@@ -1,72 +1,91 @@
 // src/pages/CreateEvent.js
-import React, { useState } from 'react';
-import axios from 'axios';                    // ← use axios directly
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import * as yup from 'yup'
+import { useNavigate } from 'react-router-dom'
+import axios from '../axiosConfig'
+import { useAuth } from '../context/AuthContext'
+
+const schema = yup.object({
+  title:            yup.string().required(),
+  category:         yup.string().required(),
+  startDate:        yup.date().required(),
+  endDate:          yup.date().min(yup.ref('startDate'), 'End must be after start').nullable(),
+  location:         yup.string().required(),
+  imageUrl:         yup.string().url('Must be a URL').nullable(),
+  price:            yup.number().positive().required(),
+  ticketsAvailable: yup.number().integer().positive().required(),
+  organizer:        yup.string().nullable(),
+  description:      yup.string().nullable(),
+});
 
 export default function CreateEvent() {
-  const [form, setForm]   = useState({
-    title: '',
-    category: '',
-    startDate: '',
-    endDate: '',
-    location: '',
-    imageUrl: '',
-    price: '',
-    ticketsAvailable: '',
-    organizer: '',
-    description: ''
-  });
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [error, setError] = useState('');
-  const navigate          = useNavigate();
 
-  const handleChange = e => {
-    const { name, value } = e.target;
-    setForm(f => ({ ...f, [name]: value }));
-  };
+  const { register, handleSubmit, formState:{ errors, isSubmitting }} = useForm({
+    resolver: yupResolver(schema)
+  });
 
-  const handleSubmit = async e => {
-    e.preventDefault();
+  const onSubmit = async data => {
     try {
-      // Because you set "proxy" in package.json to http://localhost:5000
-      await axios.post('/events', {
-        ...form,
-        price: Number(form.price),
-        ticketsAvailable: Number(form.ticketsAvailable)
+      const res = await axios.post('/events', data, {
+        headers: { Authorization: `Bearer ${user.token}` }
       });
-      navigate('/events');
+      if (res.data.success) navigate('/events');
+      else setError(res.data.error);
     } catch (err) {
-      setError(err.response?.data?.error || 'Could not create event');
+      setError(err.response?.data?.error || err.message);
     }
   };
 
+  const fields = [
+    { name:'title',           label:'Title',           type:'text' },
+    { name:'category',        label:'Category',        type:'text' },
+    { name:'startDate',       label:'Start Date',      type:'date' },
+    { name:'endDate',         label:'End Date',        type:'date' },
+    { name:'location',        label:'Location',        type:'text' },
+    { name:'imageUrl',        label:'Image URL',       type:'url' },
+    { name:'price',           label:'Price',           type:'number' },
+    { name:'ticketsAvailable',label:'Tickets Available', type:'number' },
+    { name:'organizer',       label:'Organizer',       type:'text' },
+  ];
+
   return (
-    <div className="p-8 max-w-xl mx-auto">
-      <h2 className="text-2xl mb-4">Create New Event</h2>
+    <div className="max-w-lg mx-auto p-4">
+      <h2 className="text-xl font-semibold mb-4">Create Event</h2>
       {error && <p className="text-red-500 mb-4">{error}</p>}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {Object.keys(form).map(key => (
-          <div key={key}>
-            <label className="block font-medium capitalize">{key}</label>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {fields.map(f => (
+          <div key={f.name}>
+            <label className="block mb-1">{f.label}</label>
             <input
-              name={key}
-              value={form[key]}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-              type={
-                key === 'price' || key === 'ticketsAvailable' 
-                  ? 'number' 
-                  : key.includes('Date') 
-                    ? 'date' 
-                    : 'text'
-              }
+              type={f.type}
+              {...register(f.name)}
+              className="w-full border rounded px-2 py-1"
             />
+            {errors[f.name] && <p className="text-red-500 text-sm">{errors[f.name].message}</p>}
           </div>
         ))}
+
+        <div>
+          <label className="block mb-1">Description</label>
+          <textarea
+            {...register('description')}
+            className="w-full border rounded px-2 py-1"
+            rows={4}
+          />
+          {errors.description && <p className="text-red-500 text-sm">{errors.description.message}</p>}
+        </div>
+
         <button
           type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          disabled={isSubmitting}
+          className="w-full bg-blue-600 text-white py-2 rounded disabled:opacity-50"
         >
-          Save Event
+          {isSubmitting ? 'Creating…' : 'Create Event'}
         </button>
       </form>
     </div>

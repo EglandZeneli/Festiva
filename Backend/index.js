@@ -1,94 +1,140 @@
-// Backend/index.js
+// index.js
 require('dotenv').config();
-const express  = require('express');
-const cors     = require('cors');
-const mongoose = require('mongoose');
-const bcrypt   = require('bcrypt');
-const jwt      = require('jsonwebtoken');
+const express        = require('express');
+const cors           = require('cors');
+const mongoose       = require('mongoose');
+const nodemailer     = require('nodemailer');
+const cookieParser   = require('cookie-parser');
+const swaggerJsdoc   = require('swagger-jsdoc');
+const swaggerUi      = require('swagger-ui-express');
 
-// 1) Import Mongoose models from models/
-const User  = require('./models/User');
-const Event = require('./models/Events');
+const authRoutes     = require('./routes/auth');
+const eventsRoutes   = require('./routes/events');
+const authenticate   = require('./middleware/authenticate');
+const Event          = require('./models/Event');
+const User           = require('./models/User');  // ← import User for lookup
 
 const app = express();
-app.use(cors());
+
+// ─── Swagger / OpenAPI Setup ─────────────────────────────────────────
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title:       'Festiva API',
+      version:     '1.0.0',
+      description: 'Event ticketing backend',
+    },
+    servers: [{ url: 'http://localhost:5000', description: 'Local server' }],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type:         'http',
+          scheme:       'bearer',
+          bearerFormat: 'JWT'
+        }
+      },
+      schemas: {
+        EventInput: {
+          type: 'object',
+          required: [
+            'title','price','startDate','endDate',
+            'location','category','ticketsAvailable'
+          ],
+          properties: {
+            title:           { type: 'string' },
+            price:           { type: 'number' },
+            startDate:       { type: 'string', format: 'date-time' },
+            endDate:         { type: 'string', format: 'date-time' },
+            location:        { type: 'string' },
+            category:        { type: 'string' },
+            ticketsAvailable:{ type: 'integer', minimum: 0 }
+          }
+        }
+      }
+    },
+    security: [{ bearerAuth: [] }]
+  },
+  apis: ['./routes/*.js']
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
+
+// ─── Middleware ───────────────────────────────────────────────────────
+app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 
-// 2) Connect to MongoDB
-mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  })
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+// ─── SMTP Transporter Setup ───────────────────────────────────────────
+const transporter = nodemailer.createTransport({
+  host:   process.env.EMAIL_HOST,
+  port:   Number(process.env.EMAIL_PORT),
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
-// 3) JWT helper
-function generateToken(user) {
-  return jwt.sign(
-    { userId: user._id, username: user.username, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
-  );
+async function sendOrderConfirmation(toEmail, orderItems) {
+  const lines = orderItems
+    .map(i => `• ${i.event.title} ×${i.quantity} = $${i.quantity * i.event.price}`)
+    .join('\n');
+
+  await transporter.sendMail({
+    from:    `"Festiva Tickets" <${process.env.EMAIL_USER}>`,
+    to:      toEmail,
+    subject: 'Your Festiva Ticket Confirmation',
+    text:    `Thank you for your purchase!\n\nHere’s your order summary:\n${lines}\n\nEnjoy the show!`
+  });
 }
 
-// 4) Public routes: Register & Login
-app.post('/auth/register', async (req, res) => {
-  const { username, password, role = 'user' } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required.' });
-  }
-  if (await User.exists({ username })) {
-    return res.status(409).json({ error: 'User already exists.' });
-  }
-  const passwordHash = await bcrypt.hash(password, 10);
-  await User.create({ username, passwordHash, role });
-  res.status(201).json({ message: 'Registered successfully.' });
-});
+// ─── Route Mounts ────────────────────────────────────────────────────
+// Auth: register, login, refresh
+app.use('/auth', authRoutes);
 
-app.post('/auth/login', async (req, res) => {
-  const { username, password } = req.body;
-  const user = await User.findOne({ username });
-  if (!user) return res.status(401).json({ error: 'Invalid credentials.' });
-  const match = await bcrypt.compare(password, user.passwordHash);
-  if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
-  res.json({ token: generateToken(user) });
-});
+// Events: public GETs, protected writes inside routes/events.js
+app.use('/events', eventsRoutes);
 
-// 5) Middleware: protect routes
-function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or invalid Authorization header.' });
-  }
-  try {
-    req.user = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
-    next();
-  } catch {
-    return res.status(403).json({ error: 'Invalid or expired token.' });
-  }
-}
+// Orders: protected, sends confirmation email
+app.post(
+  '/orders',
+  authenticate,
+  async (req, res) => {
+    try {
+      // ←— LOOK UP USER IN DB TO GET EMAIL
+      const dbUser = await User.findById(req.user.id);
+      if (!dbUser || !dbUser.email) {
+        throw new Error('User or email not found in database');
+      }
+      const toEmail = dbUser.email;
 
-// 6) Event routes
-// Public — get all events
-app.get('/events', async (req, res) => {
-  const events = await Event.find().sort({ startDate: 1 });
-  res.json(events);
-});
+      const { items } = req.body;
+      const orderItems = await Promise.all(
+        items.map(async i => {
+          const evt = await Event.findById(i.eventId);
+          if (!evt) throw new Error('Event not found: ' + i.eventId);
+          return { event: evt, quantity: i.quantity };
+        })
+      );
 
-// Protected — create new event (admin/organizer only)
-app.post('/events', authenticate, async (req, res) => {
-  if (!['admin','organizer'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Insufficient permissions.' });
+      await sendOrderConfirmation(toEmail, orderItems);
+      res.json({ success: true, message: 'Order placed and email sent.' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
   }
-  try {
-    const newEvent = await Event.create(req.body);
-    res.status(201).json(newEvent);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
+);
 
-// 7) Start the server
+// ─── Start Server ────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Backend up at http://localhost:${PORT}`));
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() =>
+    app.listen(PORT, () =>
+      console.log(`🚀 Server running on http://localhost:${PORT}`)
+    )
+  )
+  .catch(err => console.error('DB connection error:', err));

@@ -1,18 +1,22 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import "./index.css";
-import App from "./App";
-import { CartProvider } from "./context/CartContext";
-import { AuthProvider } from "./context/AuthContext";
+// src/index.js
+import React from 'react'
+import ReactDOM from 'react-dom'
+import App from './App'
+import { AuthProvider } from './context/AuthContext'
+import { CartProvider } from './context/CartContext'
+import 'react-toastify/dist/ReactToastify.css'
 
+// ← Add this so Tailwind & your custom CSS actually load
+import './index.css'
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <AuthProvider>
-      <CartProvider>
-        <App />
-      </CartProvider>
-    </AuthProvider>
-    
-  </React.StrictMode>
-);
+import { ToastContainer } from 'react-toastify'
+
+ReactDOM.render(
+  <AuthProvider>
+    <CartProvider>
+      <App />
+      <ToastContainer />
+    </CartProvider>
+  </AuthProvider>,
+  document.getElementById('root')
+)

@@ -1,56 +1,48 @@
 // src/pages/Events.js
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { useCart } from "../context/CartContext";
+import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import axios from '../axiosConfig'
+import { useAuth } from '../context/AuthContext'
+import EventCard from '../components/EventCard'
 
 export default function Events() {
-  const { cart, setCart } = useCart();
-  const [events, setEvents]   = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState("");
+  const [events, setEvents] = useState([])
+  const [error, setError]   = useState('')
+  const { user }            = useAuth()
 
   useEffect(() => {
-    axios.get("/events")
-      .then(res => {
-        setEvents(res.data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setError("Could not load events.");
-        setLoading(false);
-      });
-  }, []);
-
-  const addToCart = ev => {
-    if (!cart.some(i => i.id === ev.id)) {
-      setCart([...cart, ev]);
+    async function fetchEvents() {
+      try {
+        const { data } = await axios.get('/events')
+          setEvents(data)            // data is your events array
+      } catch (err) {
+        setError(err.response?.data?.error || err.message)
+      }
     }
-  };
-
-  if (loading) return <p className="p-8 text-white">Loading events…</p>;
-  if (error)   return <p className="p-8 text-red-500">{error}</p>;
+    fetchEvents()
+  }, [])
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 p-8">
-      {events.map(ev => (
-        <div key={ev.id} className="border rounded shadow p-4">
-          <h3 className="text-xl font-bold">{ev.title}</h3>
-          <p>
-            {ev.startDate}
-            {ev.endDate ? ` – ${ev.endDate}` : ""}
-            {" @ "}{ev.location}
-          </p>
-          <p className="font-semibold">€{ev.price}</p>
-          <button
-            onClick={() => addToCart(ev)}
-            disabled={cart.some(i => i.id === ev.id)}
-            className="mt-2 bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">All Events</h1>
+        {user && ['admin','organiser'].includes(user.role) && (
+          <Link
+            to="/events/new"
+            className="bg-green-600 text-white px-4 py-2 rounded"
           >
-            {cart.some(i => i.id === ev.id) ? "In Cart" : "Add to Cart"}
-          </button>
-        </div>
-      ))}
+            New Event
+          </Link>
+        )}
+      </div>
+
+      {error && <div className="text-red-500 mb-4">{error}</div>}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {events.map(evt => (
+          <EventCard key={evt._id} event={evt} />
+        ))}
+      </div>
     </div>
-  );
+  )
 }
