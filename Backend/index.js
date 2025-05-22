@@ -1,18 +1,17 @@
-// index.js
 require('dotenv').config();
-const express        = require('express');
-const cors           = require('cors');
-const mongoose       = require('mongoose');
-const nodemailer     = require('nodemailer');
-const cookieParser   = require('cookie-parser');
-const swaggerJsdoc   = require('swagger-jsdoc');
-const swaggerUi      = require('swagger-ui-express');
+const express      = require('express');
+const cors         = require('cors');
+const mongoose     = require('mongoose');
+const nodemailer   = require('nodemailer');
+const cookieParser = require('cookie-parser');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi    = require('swagger-ui-express');
 
-const authRoutes     = require('./routes/auth');
-const eventsRoutes   = require('./routes/events');
-const authenticate   = require('./middleware/authenticate');
-const Event          = require('./models/Event');
-const User           = require('./models/User');  // ← import User for lookup
+const authRoutes   = require('./routes/auth');
+const eventsRoutes = require('./routes/events');
+const authenticate = require('./middleware/authenticate');
+const Event        = require('./models/Event');
+const User         = require('./models/User');
 
 const app = express();
 
@@ -25,7 +24,9 @@ const swaggerOptions = {
       version:     '1.0.0',
       description: 'Event ticketing backend',
     },
-    servers: [{ url: 'http://localhost:5000', description: 'Local server' }],
+    servers: [
+      { url: 'http://localhost:5000', description: 'Local server' }
+    ],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -66,7 +67,7 @@ app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// ─── SMTP Transporter Setup ───────────────────────────────────────────
+// ─── Routes ────────────────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
   host:   process.env.EMAIL_HOST,
   port:   Number(process.env.EMAIL_PORT),
@@ -90,51 +91,46 @@ async function sendOrderConfirmation(toEmail, orderItems) {
   });
 }
 
-// ─── Route Mounts ────────────────────────────────────────────────────
 // Auth: register, login, refresh
 app.use('/auth', authRoutes);
 
-// Events: public GETs, protected writes inside routes/events.js
+// Events: all endpoints in routes/events.js (GET public, POST/PUT/DELETE protected)
 app.use('/events', eventsRoutes);
 
 // Orders: protected, sends confirmation email
-app.post(
-  '/orders',
-  authenticate,
-  async (req, res) => {
-    try {
-      // ←— LOOK UP USER IN DB TO GET EMAIL
-      const dbUser = await User.findById(req.user.id);
-      if (!dbUser || !dbUser.email) {
-        throw new Error('User or email not found in database');
-      }
-      const toEmail = dbUser.email;
-
-      const { items } = req.body;
-      const orderItems = await Promise.all(
-        items.map(async i => {
-          const evt = await Event.findById(i.eventId);
-          if (!evt) throw new Error('Event not found: ' + i.eventId);
-          return { event: evt, quantity: i.quantity };
-        })
-      );
-
-      await sendOrderConfirmation(toEmail, orderItems);
-      res.json({ success: true, message: 'Order placed and email sent.' });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: err.message });
+app.post('/orders', authenticate, async (req, res) => {
+  try {
+    // Lookup user email in DB
+    const dbUser = await User.findById(req.user.id);
+    if (!dbUser || !dbUser.email) {
+      throw new Error('User email not found in database');
     }
+    const toEmail = dbUser.email;
+
+    // Build items
+    const orderItems = await Promise.all(
+      req.body.items.map(async i => {
+        const evt = await Event.findById(i.eventId);
+        if (!evt) throw new Error('Event not found: ' + i.eventId);
+        return { event: evt, quantity: i.quantity };
+      })
+    );
+
+    await sendOrderConfirmation(toEmail, orderItems);
+    res.json({ success: true, message: 'Order placed and email sent.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
-);
+});
 
 // ─── Start Server ────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() =>
-    app.listen(PORT, () =>
-      console.log(`🚀 Server running on http://localhost:${PORT}`)
-    )
-  )
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
+  })
   .catch(err => console.error('DB connection error:', err));

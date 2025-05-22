@@ -1,11 +1,10 @@
-// src/pages/CreateEvent.js
-import React, { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import * as yup from 'yup'
-import { useNavigate } from 'react-router-dom'
-import axios from '../axiosConfig'
-import { useAuth } from '../context/AuthContext'
+import React, { useState } from 'react';
+import { useForm }         from 'react-hook-form';
+import { yupResolver }     from '@hookform/resolvers/yup';
+import * as yup            from 'yup';
+import { useNavigate }     from 'react-router-dom';
+import API                 from '../axiosConfig';       
+import { useAuth }         from '../context/AuthContext'; 
 
 const schema = yup.object({
   title:            yup.string().required(),
@@ -21,7 +20,7 @@ const schema = yup.object({
 });
 
 export default function CreateEvent() {
-  const { user } = useAuth();
+  const { user } = useAuth();   // still import if you need role checks
   const navigate = useNavigate();
   const [error, setError] = useState('');
 
@@ -31,11 +30,12 @@ export default function CreateEvent() {
 
   const onSubmit = async data => {
     try {
-      const res = await axios.post('/events', data, {
-        headers: { Authorization: `Bearer ${user.token}` }
-      });
-      if (res.data.success) navigate('/events');
-      else setError(res.data.error);
+      const res = await API.post('/events', data);
+      if (res.data.success) {
+        navigate('/events');
+      } else {
+        setError(res.data.error);
+      }
     } catch (err) {
       setError(err.response?.data?.error || err.message);
     }
@@ -64,7 +64,7 @@ export default function CreateEvent() {
             <input
               type={f.type}
               {...register(f.name)}
-              className="w-full border rounded px-2 py-1"
+              className="w-full border rounded px-2 py-1 text-black"
             />
             {errors[f.name] && <p className="text-red-500 text-sm">{errors[f.name].message}</p>}
           </div>
@@ -74,7 +74,7 @@ export default function CreateEvent() {
           <label className="block mb-1">Description</label>
           <textarea
             {...register('description')}
-            className="w-full border rounded px-2 py-1"
+            className="w-full border rounded px-2 py-1 text-black"
             rows={4}
           />
           {errors.description && <p className="text-red-500 text-sm">{errors.description.message}</p>}

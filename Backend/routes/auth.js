@@ -1,4 +1,4 @@
-// routes/auth.js
+
 const express  = require('express');
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
@@ -36,11 +36,34 @@ const User     = require('../models/User');
  *                 format: email
  *               password:
  *                 type: string
+ *               role:
+ *                 type: string
+ *                 description: user|organiser|admin
  *     responses:
- *       200:
- *         description: Token + user info
- *       400:
+ *       '200':
+ *         description: Access token + user info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 accessToken:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     username:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *       '400':
  *         description: Validation error
+ *       '500':
+ *         description: Server error
  */
 router.post('/register', async (req, res) => {
   try {
@@ -58,7 +81,7 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await User.create({ username, email, passwordHash, role: role || 'user' });
 
-    // ←— INCLUDE username & email IN PAYLOAD
+    // create access token
     const accessToken = jwt.sign(
       {
         id:       user._id,
@@ -107,10 +130,26 @@ router.post('/register', async (req, res) => {
  *               password:
  *                 type: string
  *     responses:
- *       200:
+ *       '200':
  *         description: Access token returned & refresh token set in cookie
- *       400:
- *         description: Invalid credentials
+ *         headers:
+ *           Set-Cookie:
+ *             description: HttpOnly refreshToken
+ *             schema:
+ *               type: string
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 accessToken:
+ *                   type: string
+ *       '400':
+ *         description: Invalid credentials or missing fields
+ *       '500':
+ *         description: Server error
  */
 router.post('/login', async (req, res) => {
   try {
@@ -118,12 +157,13 @@ router.post('/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
+
     const user = await User.findOne({ email });
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    // ←— ALSO INCLUDE username & email IN PAYLOAD
+    // 1) Create the access token
     const accessToken = jwt.sign(
       {
         id:       user._id,
@@ -134,21 +174,24 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
+
+    // 2) Create the refresh token
     const refreshToken = jwt.sign(
       { id: user._id },
       process.env.REFRESH_SECRET,
       { expiresIn: process.env.REFRESH_EXPIRES_IN }
     );
 
-    // Set HttpOnly refresh token cookie
+    // 3) Send the refresh token as an HttpOnly cookie
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure:   process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path:     '/auth/refresh',
-      maxAge:   1000 * 60 * 60 * 24 * 7
+      maxAge:   1000 * 60 * 60 * 24 * 7 // 7 days
     });
 
+    // 4) Return the access token
     res.json({ success: true, accessToken });
   } catch (err) {
     console.error(err);
@@ -163,19 +206,29 @@ router.post('/login', async (req, res) => {
  *     summary: Refresh your access token using the refresh-token cookie
  *     tags: [Auth]
  *     responses:
- *       200:
+ *       '200':
  *         description: New access token
- *       401:
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 accessToken:
+ *                   type: string
+ *       '401':
  *         description: No refresh token cookie
- *       403:
+ *       '403':
  *         description: Invalid or expired refresh token
  */
+// Middleware to authenticate user for POST, PUT, DELETE
 router.post('/refresh', (req, res) => {
-  const token = req.cookies?.refreshToken;
-  if (!token) {
-    return res.status(401).json({ error: 'No refresh token' });
-  }
   try {
+    const token = req.cookies.refreshToken;
+    if (!token) {
+      return res.status(401).json({ error: 'No refresh token' });
+    }
     const payload = jwt.verify(token, process.env.REFRESH_SECRET);
     const newAccess = jwt.sign(
       { id: payload.id },
@@ -184,6 +237,7 @@ router.post('/refresh', (req, res) => {
     );
     res.json({ success: true, accessToken: newAccess });
   } catch (err) {
+    console.error(err);
     res.status(403).json({ error: 'Invalid refresh token' });
   }
 });

@@ -1,7 +1,6 @@
-// src/pages/Checkout.js
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import API from '../axiosConfig'               // your configured axios instance :contentReference[oaicite:1]{index=1}
+import API from '../axiosConfig'               
 import { useAuth } from '../context/AuthContext'
 
 export default function Checkout() {

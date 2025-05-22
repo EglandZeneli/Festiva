@@ -1,13 +1,20 @@
-// src/components/Navbar.js
+
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import { toast } from 'react-toastify'    
 
 export default function Navbar() {
   const { user, logout } = useAuth()
   const { items = [] } = useCart()
   const cartCount = items.reduce((sum, i) => sum + i.quantity, 0)
+
+  // ← wrap logout in a toast
+  const handleLogout = () => {
+    logout()
+    toast.info('You have been logged out.') 
+  }
 
   return (
     <nav className="bg-gray-800 text-white p-4">
@@ -44,7 +51,7 @@ export default function Navbar() {
           )}
           {user ? (
             <button 
-              onClick={logout} 
+              onClick={handleLogout}             // ← use the wrapped handler
               className="hover:underline hover:text-gray-300"
             >
               Logout

@@ -1,7 +1,7 @@
-// src/pages/Cart.js
+
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import API from '../axiosConfig'         // your configured axios instance
+import API from '../axiosConfig'         
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { toast } from 'react-toastify'
@@ -45,7 +45,7 @@ export default function Cart() {
       </div>
     )
   }
-
+// If there are items in the cart, show them
   return (
     <div className="min-h-screen bg-gray-900 py-8">
       <div className="max-w-md mx-auto">

@@ -1,4 +1,4 @@
-// routes/events.js
+
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const authenticate = require('../middleware/authenticate');
@@ -32,6 +32,7 @@ const handleValidationErrors = (req, res, next) => {
  *       200:
  *         description: Array of event objects
  */
+// Middleware to validate query parameters
 router.get('/', async (req, res) => {
   try {
     const list = await Event.find().sort({ startDate: 1 });
@@ -63,6 +64,7 @@ router.get('/', async (req, res) => {
  *       404:
  *         description: Event not found
  */
+// Middleware to validate event ID
 router.get(
   '/:id',
   param('id').isMongoId().withMessage('Invalid event ID'),
@@ -81,7 +83,7 @@ router.get(
   }
 );
 
-// ─── All routes below here require a valid JWT ─────────────────────
+// Middleware to authenticate user for POST, PUT, DELETE
 router.use(authenticate);
 
 /**
@@ -104,6 +106,7 @@ router.use(authenticate);
  *       400:
  *         description: Validation errors
  */
+// Middleware to validate event input
 router.post(
   '/',
   [
@@ -117,6 +120,7 @@ router.post(
       .isInt({ min: 0 })
       .withMessage('ticketsAvailable must be a non-negative integer'),
   ],
+
   handleValidationErrors,
   async (req, res) => {
     try {
@@ -159,6 +163,7 @@ router.post(
  *       404:
  *         description: Event not found
  */
+// Middleware to validate event ID and input
 router.put(
   '/:id',
   [
@@ -216,6 +221,7 @@ router.put(
  *       404:
  *         description: Event not found
  */
+// Middleware to validate event ID
 router.delete(
   '/:id',
   param('id').isMongoId().withMessage('Invalid event ID'),

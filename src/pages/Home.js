@@ -1,4 +1,3 @@
-// src/pages/Home.js
 import React from "react";
 import { Sparkles, Mic, Music } from "lucide-react";
 import "../index.css"; // global Tailwind + custom styles
